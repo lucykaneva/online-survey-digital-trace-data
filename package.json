@@ -6,7 +6,7 @@
 	"dependencies": {
 		"@material-ui/core": "^4.12.4",
 		"bootstrap": "^4.6.0",
-		"firebase": "^8.10.1",
+		"firebase": "^10.9.0",
 		"gh-pages": "^6.0.0",
 		"moment-timezone": "^0.5.43",
 		"papaparse": "^5.4.1",
