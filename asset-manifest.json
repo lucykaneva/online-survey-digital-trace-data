@@ -1,0 +1,23 @@
+{
+  "files": {
+    "main.css": "/online-survey-digital-trace-data/static/css/main.a6fe802e.chunk.css",
+    "main.js": "/online-survey-digital-trace-data/static/js/main.ac82adb8.chunk.js",
+    "main.js.map": "/online-survey-digital-trace-data/static/js/main.ac82adb8.chunk.js.map",
+    "runtime-main.js": "/online-survey-digital-trace-data/static/js/runtime-main.7c796e6c.js",
+    "runtime-main.js.map": "/online-survey-digital-trace-data/static/js/runtime-main.7c796e6c.js.map",
+    "static/css/2.ecd857ce.chunk.css": "/online-survey-digital-trace-data/static/css/2.ecd857ce.chunk.css",
+    "static/js/2.5d652e8b.chunk.js": "/online-survey-digital-trace-data/static/js/2.5d652e8b.chunk.js",
+    "static/js/2.5d652e8b.chunk.js.map": "/online-survey-digital-trace-data/static/js/2.5d652e8b.chunk.js.map",
+    "index.html": "/online-survey-digital-trace-data/index.html",
+    "static/css/2.ecd857ce.chunk.css.map": "/online-survey-digital-trace-data/static/css/2.ecd857ce.chunk.css.map",
+    "static/css/main.a6fe802e.chunk.css.map": "/online-survey-digital-trace-data/static/css/main.a6fe802e.chunk.css.map",
+    "static/js/2.5d652e8b.chunk.js.LICENSE.txt": "/online-survey-digital-trace-data/static/js/2.5d652e8b.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.7c796e6c.js",
+    "static/css/2.ecd857ce.chunk.css",
+    "static/js/2.5d652e8b.chunk.js",
+    "static/css/main.a6fe802e.chunk.css",
+    "static/js/main.ac82adb8.chunk.js"
+  ]
+}
