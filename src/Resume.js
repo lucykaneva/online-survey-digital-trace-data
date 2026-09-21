@@ -256,7 +256,6 @@ export default class Resume extends React.Component {
 	/** Fetches the candidate data (name and gender) from the database and stores it in state */
 	parseCandidateData(callbackFunc) {
 		const rawData = this.db.collection("candidates");
-
 		const maleCandidates = [];
 		const femaleCandidates = [];
 
