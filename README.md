@@ -22,6 +22,7 @@ Researchers have developed many uses for digital trace data, yet most online sur
 - [Creating Interactive Digital Resumes for Qualtrics Surveys](#creating_interactive_digital_resumes)
 - [Troubleshooting](#troubleshooting)
 - [Customizing](#customizing)
+- [Admin login](#admin_password)
 - [Contributing](#contributing)
 - [Acknowledgements](#acknowledgements)
 - [Replicating Results](#replicating_results)
@@ -248,6 +249,18 @@ There are many ways you can adapt the interactive digital resumes created here f
 
 1. The simplest adaptation is to change the information shown in the already created fields for work, education, and miscellaneous items. All you need to do here is change that information in Firebase, so minimal coding skills required.
 2. Another thing you might want to do is run multiple variations of the study. For example, you might want to add a remote/collocated random assignment in addition to the parent/nonparent condition. You can use the `studyVersion` parameter in the URL to route to different variants of the study, which should have their logic implemented within `Resume.js` in the `getResume1Values` function.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+## Admin login by Lyudmila Kaneva October 2026<a name="admin_password"></a>
+To log in and download your survey data from the admin page, you are prompted to enter an email and password. The authentication process happens through Firebase itself and thus, we are storing the email and password there rather than in config.js as before. 
+
+To add an admin email and password:
+1. Navigate to your Firebase Console, open your database project under Projects. 
+2. On the sidebar to the left, under Project Shortcuts, choose **Authentication**. 
+3. Click on **Sign-in method** in the top bar -> **Add new provider** and enable the Email/password option. 
+4. Click on **Users** from the top bar ->  **Add user** and add an email and a password. Save the information by clicking **Add user**. 
+5. Navigate to your Admin page (/#/admin) and sign in with that email and password.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
