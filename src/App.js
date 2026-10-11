@@ -23,7 +23,6 @@ export default class App extends React.Component {
 		this.studyVersion = parseInt(loc.split("/")[1]);
 		this.resumeVersion = parseInt(loc.split("/")[2]);
 		this.qualtricsUserId = loc.split("/")[3];
-
 		// Print for debugging purposes within Qualtrics
 		console.log("qualtricsUserId: " + this.qualtricsUserId);
 	}

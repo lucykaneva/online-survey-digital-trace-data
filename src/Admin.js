@@ -10,14 +10,15 @@ class Admin extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			showPasswordErrorMessage: false,
+			showErrorMessage: false,
 			isAuthenticated: false,
 			email: "",
 			password: "",
 			userIDs: [],
 			resumeCSVurl: null,
 			activitiesCSVurl: null,
-			loggedInAs: ""
+			loggedInAs: "",
+			errorMessage: ""
 		};
 
 		this.DATABASE = firebase.firestore();
@@ -43,19 +44,22 @@ class Admin extends React.Component {
 	/** Logout handler */
 	handleLogout = async () => {
 		await signOut(this.auth);
-		this.setState({ email: "",
-			password: "", showErrorMessage: false, isAuthenticated: false });
+		this.setState({
+			email: "",
+			password: "", showErrorMessage: false, errorMessage:"", isAuthenticated: false, resumeCSVurl: null,
+			activitiesCSVurl: null
+		});
 	}
 
 	/** Authentication handler */
 	handleAdminLogin = async () => {
 		try {
 			const userCredential = await signInWithEmailAndPassword(this.auth, this.state.email, this.state.password);
-			this.setState({loggedInAs :  userCredential.user.email});
-			this.setState({ showErrorMessage: false, isAuthenticated: true });
-			this.fetchData();
+			this.setState({ loggedInAs: userCredential.user.email });
+			this.setState({ showErrorMessage: false, errorMessage:"", isAuthenticated: true });
+			await this.fetchData();
 		} catch (error) {
-			this.setState({ showErrorMessage: true, isAuthenticated: false });
+			this.setState({ showErrorMessage: true, isAuthenticated: false, errorMessage: "Login failed. Invalid password or email." });
 			console.error("Login failed:", error.message);
 		}
 	}
@@ -64,57 +68,61 @@ class Admin extends React.Component {
 	async fetchData() {
 		let userIDs = null;
 		this.resumeContent = []
-		this.activityContent=[]
+		this.activityContent = []
 		// In the demo version, only use the sample response IDs
 		if (IS_DEMO_VERSION) {
 			userIDs = ["0sampleResponseIDstudy1", "0sampleResponseIDstudy2"];
 		} else {
-			const tmp = await this.DATABASE.collection("responseIDs").get();
-			userIDs = tmp.docs.map((doc) => doc.id);
+			try {
+				const tmp = await this.DATABASE.collection("responseIDs").get();
+				userIDs = tmp.docs.map((doc) => doc.id);
+				if (userIDs == null){
+					throw Error("undefined userIDs")
+				}
+			}
+			catch (error) {
+				this.setState({ showErrorMessage: true, errorMessage: ("Error fetching response ids: " + error) });
+				return;
+			}
+		}
+		// Get resume content for each user
+		const resumePromises = userIDs.map((user) => {
+			return Promise.all([
+				this.getResumeContent(user, 1),
+				this.getResumeContent(user, 2),
+			]);
+		});
+
+		// Get activity content for each user
+		const activityPromises = userIDs.map((user) => {
+			return Promise.all([
+				this.getActivityContent(user, 1),
+				this.getActivityContent(user, 2),
+			]);
+		});
+
+		// Wait for all promises to resolve
+		try {
+			await Promise.all(resumePromises)
+			// Create a CSV from the resume content
+			this.setState({
+				resumeCSVurl: this.createCSV(this.resumeContent),
+			});
+		}
+		catch (error) {
+			this.setState({ showErrorMessage: true, errorMessage: ("Error fetching resume" + error) })
 		}
 
-		if (userIDs.length > 0) {
-			this.setState({ userIDs: userIDs }, () => {
-				// Get resume content for each user
-				const resumePromises = userIDs.map((user) => {
-					return Promise.all([
-						this.getResumeContent(user, 1),
-						this.getResumeContent(user, 2),
-					]);
-				});
-
-				// Wait for all promises to resolve
-				Promise.all(resumePromises)
-					.then(() => {
-						// Create a CSV from the resume content
-						this.setState({
-							resumeCSVurl: this.createCSV(this.resumeContent),
-						});
-					})
-					.catch((error) => {
-						console.error("Error fetching resumes:", error);
-					});
-
-				// Get activity content for each user
-				const activityPromises = userIDs.map((user) => {
-					return Promise.all([
-						this.getActivityContent(user, 1),
-						this.getActivityContent(user, 2),
-					]);
-				});
-
-				// Wait for all promises to resolve
-				Promise.all(activityPromises)
-					.then(() => {
-						// Create a CSV from the activity content
-						this.setState({
-							activitiesCSVurl: this.createCSV(this.activityContent),
-						});
-					})
-					.catch((error) => {
-						console.error("Error fetching activity:", error);
-					});
+		// Wait for all promises to resolve
+		try {
+			await Promise.all(activityPromises)
+			// Create a CSV from the activity content
+			this.setState({
+				activitiesCSVurl: this.createCSV(this.activityContent),
 			});
+		}
+		catch (error) {
+			this.setState({ showErrorMessage: true, errorMessage: ("Error fetching activity content" + error) })
 		}
 	}
 
@@ -209,7 +217,7 @@ class Admin extends React.Component {
 						</div>
 						<button type="submit">Submit</button>
 						{this.state.showErrorMessage && (
-							<div id="red">Invalid password or email. Please re-enter.</div>
+							<div id="red">{this.state.errorMessage}</div>
 						)}
 					</form>
 				</ModalReact>
@@ -222,9 +230,10 @@ class Admin extends React.Component {
 					<div className="title">Logged in as {this.state.loggedInAs} </div>
 					<div className="title">Download Data</div>
 
-					{!this.state.activitiesCSVurl && !this.state.resumeCSVurl && (
+					{!this.state.activitiesCSVurl && !this.state.resumeCSVurl && !this.state.showErrorMessage && (
 						<p>Processing...</p>
-					)}
+					)
+					}
 
 					{this.state.activitiesCSVurl && (
 						<div className="horizontal" id="big">
@@ -244,7 +253,10 @@ class Admin extends React.Component {
 							</a>
 						</div>
 					)}
-				<button type="reset" onClick = {this.handleLogout}>Log out</button>
+					<button type="reset" onClick={this.handleLogout}>Log out</button>
+					{this.state.errorMessage && (
+						<div id="red">{this.state.errorMessage}</div>
+					)}
 				</div>
 			</div>
 		);
