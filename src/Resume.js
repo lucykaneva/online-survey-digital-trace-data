@@ -17,6 +17,7 @@ export default class Resume extends React.Component {
 		super(props);
 		this.state = {
 			positionList: [],
+			highlights: []
 		};
 
 		// Add props to "this"
@@ -28,7 +29,6 @@ export default class Resume extends React.Component {
 			.collection("responseIDs")
 			.doc(this.props.qualtricsUserId);
 		this.RESUME_CONTENT = db.collection("resume");
-
 		this.collapsibleOpened = this.collapsibleToggled.bind(this);
 	}
 
@@ -47,6 +47,49 @@ export default class Resume extends React.Component {
 		});
 	}
 
+	handle_splice_highlights_field = (highlights, text, field_name) => {
+		text = text || "";
+		const highlights_for_field = highlights.filter((h) => h.field === field_name)
+		const sorted = highlights_for_field.sort((ha, hb) => ha.start - hb.start)
+		let position = 0
+		let array_of_string_text = []
+		sorted.forEach((highlight) => {
+			const before_highlight = text.slice(position, highlight.start)
+			const highlight_string = text.slice(highlight.start, highlight.end)
+			if (highlight.start < position) return;
+			position = highlight.end
+			const highlighted = <mark key={highlight.start}>{highlight_string}</mark>
+			array_of_string_text.push(before_highlight, highlighted)
+		}
+		)
+		array_of_string_text.push(text.slice(position, text.length))
+		return array_of_string_text
+	}
+
+	handle_selection = () => {
+		const selection = window.getSelection();
+		if (!selection || selection.isCollapsed) return;
+
+		const range = selection.getRangeAt(0)
+		const start_node = range.startContainer
+		const end_node = range.endContainer
+		const label_start = (start_node.nodeType === 1 ? start_node : start_node.parentElement).closest("[data-field]");
+		const label_end = (end_node.nodeType === 1 ? end_node : end_node.parentElement).closest("[data-field]");
+		if (label_end !== label_start || label_start == null || label_end == null) return
+
+		const before = document.createRange();
+		before.selectNodeContents(label_start);
+		before.setEnd(range.startContainer, range.startOffset);
+		const start = before.toString().length;
+		const end = start + range.toString().length;
+		
+		if (this.state.highlights.some((h)=>h.field === label_start.dataset.field && h.start<end && start<h.end)){
+			return
+		}
+		this.setState((prevState) =>
+			({ highlights: [...prevState.highlights, { start: start, end: end, field: label_start.dataset.field, text: range.toString(), timestamp: Date.now() }] }))
+
+	}
 	/** The first resume has randomly-decided values. Decide them and put into state. */
 	getResume1Values(callback) {
 		// Select gender
@@ -220,7 +263,7 @@ export default class Resume extends React.Component {
 			.then((doc) => {
 				this.addPositionToList(doc.data());
 			});
-		this.RESUME_CONTENT.doc(`work box 2${this.state.work1}`)
+		this.RESUME_CONTENT.doc(`work box 2${this.state.work2}`)
 			.get()
 			.then((doc) => {
 				this.addPositionToList(doc.data());
@@ -338,7 +381,7 @@ export default class Resume extends React.Component {
 		}
 
 		return (
-			<div className="overall">
+			<div className="overall" onMouseUp={this.handle_selection} >
 				<div className="App" onMouseMove={this._onMouseMove.bind(this)}>
 					<div className="resume">
 						<div>
@@ -347,7 +390,7 @@ export default class Resume extends React.Component {
 								src={imageToURL(this.state.isMan ? "male_user" : "female_user")}
 								alt="the candidate"
 							/>
-							<div className="header">
+							<div data-field="header" className="header">
 								{this.state.name ||
 									`Candidate ${this.state.resumeVersion === 1 ? "1" : "2"}`}
 							</div>
@@ -368,7 +411,7 @@ export default class Resume extends React.Component {
 										)}
 										{this.state.bulletList.map((item, index) => {
 											return (
-												<li key={index}>{this.replaceGenderOptions(item)}</li>
+												<li data-field={`initial phone notes ${index}`} key={index}>{this.replaceGenderOptions(item)}</li>
 											);
 										})}
 									</ul>
@@ -438,11 +481,13 @@ export default class Resume extends React.Component {
 													recordActivity={this.recordActivity}
 												/>
 												<div id="subtext">
-													{this.state.university}
-													<div id="subinfo">
+													<div data-field="university" >
+														{this.state.university}
+													</div>
+													<div id="subinfo" data-field="degree and major">
 														{this.state.degree}, {this.state.major}
 													</div>
-													<div id="subinfogray">{this.state.duration}</div>
+													<div id="subinfogray" data-field="duration" >{this.state.duration}</div>
 												</div>
 											</div>
 										</Card.Body>
@@ -517,12 +562,16 @@ export default class Resume extends React.Component {
 
 															<div id="subtext">
 																{" "}
-																{position.title}
+																<div data-field={`position title ${index + 1}`}>{position.title}</div>
 																<div id="horizontal">
-																	<div id="subinfo">{position.company}</div>
+																	<div id="subinfo" data-field={`company ${index + 1}`} >{position.company}</div>
 																</div>
-																<div id="subinfogray">{position.duration}</div>
-																<div id="subinfo">{position.description}</div>
+																<div id="subinfogray" data-field={`duration ${index + 1}`} >{position.duration}</div>
+																<div id="subinfo" data-field={`description ${index + 1}`}>{this.handle_splice_highlights_field(
+																	this.state.highlights,
+																	position.description,
+																	`description ${index + 1}`
+																)}</div>
 															</div>
 														</div>
 														<Divider />
@@ -599,7 +648,7 @@ export default class Resume extends React.Component {
 													<ul>
 														{this.state.misc.map((item, index) => {
 															return (
-																<li key={index}>
+																<li data-field={`misc ${index}`} key={index}>
 																	{this.replaceGenderOptions(item)}
 																</li>
 															);
