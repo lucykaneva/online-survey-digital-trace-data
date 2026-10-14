@@ -47,6 +47,8 @@ export default class Resume extends React.Component {
 		});
 	}
 
+	/**Produces the highlighted form of the text in a given field by iterating all of the highlights 
+	and finding the ones that are in scope in this field.*/
 	handle_splice_highlights_field = (highlights, text, field_name) => {
 		text = text || "";
 		const highlights_for_field = highlights.filter((h) => h.field === field_name)
@@ -82,14 +84,19 @@ export default class Resume extends React.Component {
 		before.setEnd(range.startContainer, range.startOffset);
 		const start = before.toString().length;
 		const end = start + range.toString().length;
-		
-		if (this.state.highlights.some((h)=>h.field === label_start.dataset.field && h.start<end && start<h.end)){
+
+		if (this.state.highlights.some((h) => h.field === label_start.dataset.field && h.start < end && start < h.end)) {
 			return
 		}
 		this.setState((prevState) =>
 			({ highlights: [...prevState.highlights, { start: start, end: end, field: label_start.dataset.field, text: range.toString(), timestamp: Date.now() }] }))
 
 	}
+
+	//*Renders the highlighted text inside the field by calling the handle_splice_highlights_field method.*/
+	render_highlighted = (text, field_name) =>
+		this.handle_splice_highlights_field(this.state.highlights, text, field_name);
+
 	/** The first resume has randomly-decided values. Decide them and put into state. */
 	getResume1Values(callback) {
 		// Select gender
@@ -390,7 +397,7 @@ export default class Resume extends React.Component {
 								src={imageToURL(this.state.isMan ? "male_user" : "female_user")}
 								alt="the candidate"
 							/>
-							<div data-field="header" className="header">
+							<div className="header">
 								{this.state.name ||
 									`Candidate ${this.state.resumeVersion === 1 ? "1" : "2"}`}
 							</div>
@@ -411,7 +418,7 @@ export default class Resume extends React.Component {
 										)}
 										{this.state.bulletList.map((item, index) => {
 											return (
-												<li data-field={`initial phone notes ${index}`} key={index}>{this.replaceGenderOptions(item)}</li>
+												<li data-field={`initial phone notes ${index}`} key={index}>{this.render_highlighted(this.replaceGenderOptions(item), `initial phone notes ${index}`)}</li>
 											);
 										})}
 									</ul>
@@ -482,12 +489,15 @@ export default class Resume extends React.Component {
 												/>
 												<div id="subtext">
 													<div data-field="university" >
-														{this.state.university}
+														{this.render_highlighted(this.state.university, "university")}
 													</div>
 													<div id="subinfo" data-field="degree and major">
-														{this.state.degree}, {this.state.major}
+														{this.render_highlighted(
+															`${this.state.degree || ""}, ${this.state.major || ""}`,
+															"degree and major"
+														)}
 													</div>
-													<div id="subinfogray" data-field="duration" >{this.state.duration}</div>
+													<div id="subinfogray" data-field="duration" >{this.render_highlighted(this.state.duration, "duration")}</div>
 												</div>
 											</div>
 										</Card.Body>
@@ -562,16 +572,12 @@ export default class Resume extends React.Component {
 
 															<div id="subtext">
 																{" "}
-																<div data-field={`position title ${index + 1}`}>{position.title}</div>
+																<div data-field={`position title ${index + 1}`}>{this.render_highlighted(position.title, `position title ${index + 1}`)}</div>
 																<div id="horizontal">
-																	<div id="subinfo" data-field={`company ${index + 1}`} >{position.company}</div>
+																	<div id="subinfo" data-field={`company ${index + 1}`} >{this.render_highlighted(position.company, `company ${index + 1}`)}</div>
 																</div>
-																<div id="subinfogray" data-field={`duration ${index + 1}`} >{position.duration}</div>
-																<div id="subinfo" data-field={`description ${index + 1}`}>{this.handle_splice_highlights_field(
-																	this.state.highlights,
-																	position.description,
-																	`description ${index + 1}`
-																)}</div>
+																<div id="subinfogray" data-field={`duration ${index + 1}`} >{this.render_highlighted(position.duration, `duration ${index + 1}`)}</div>
+																<div id="subinfo" data-field={`description ${index + 1}`}>{this.render_highlighted(position.description, `description ${index + 1}`)}</div>
 															</div>
 														</div>
 														<Divider />
@@ -649,7 +655,7 @@ export default class Resume extends React.Component {
 														{this.state.misc.map((item, index) => {
 															return (
 																<li data-field={`misc ${index}`} key={index}>
-																	{this.replaceGenderOptions(item)}
+																	{this.render_highlighted(this.replaceGenderOptions(item), `misc ${index}`)}
 																</li>
 															);
 														})}

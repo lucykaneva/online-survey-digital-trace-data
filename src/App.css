@@ -26,6 +26,12 @@
 	padding-bottom: 3%;
 }
 
+.resume mark {
+	padding: 0;
+	background-color: #fff3a3;
+	border-radius: 2px;
+}
+
 .header {
 	font-size: 24px;
 	padding-bottom: 3%;
