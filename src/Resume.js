@@ -78,18 +78,28 @@ export default class Resume extends React.Component {
 		const label_start = (start_node.nodeType === 1 ? start_node : start_node.parentElement).closest("[data-field]");
 		const label_end = (end_node.nodeType === 1 ? end_node : end_node.parentElement).closest("[data-field]");
 		if (label_end !== label_start || label_start == null || label_end == null) return
+		const field = label_start.dataset.field;
 
 		const before = document.createRange();
 		before.selectNodeContents(label_start);
 		before.setEnd(range.startContainer, range.startOffset);
 		const start = before.toString().length;
 		const end = start + range.toString().length;
+		const overlapping = this.state.highlights.filter(
+			(h) => h.field === field && h.start < end && start < h.end
+		);
 
-		if (this.state.highlights.some((h) => h.field === label_start.dataset.field && h.start < end && start < h.end)) {
-			return
-		}
-		this.setState((prevState) =>
-			({ highlights: [...prevState.highlights, { start: start, end: end, field: label_start.dataset.field, text: range.toString(), timestamp: Date.now() }] }))
+		const new_start = Math.min(start, ...overlapping.map((h) => h.start));
+		const new_end = Math.max(end, ...overlapping.map((h) => h.end))
+		const new_text = label_start.textContent.slice(new_start, new_end);
+		this.setState((prevState) => ({
+			highlights: [
+				...prevState.highlights.filter(
+					(h) => !(h.field === field && h.start < end && start < h.end)
+				),
+				{ start: new_start, end: new_end, field: field, text: new_text, timestamp: Date.now() },
+			],
+		}));
 
 	}
 
