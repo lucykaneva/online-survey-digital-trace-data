@@ -2,16 +2,12 @@ import React from "react";
 import "./App.css";
 import Divider from "@material-ui/core/Divider";
 import firebase from "./firebase";
-import Accordion from "react-bootstrap/Accordion";
-import Button from "react-bootstrap/Button";
 import Card from "react-bootstrap/Card";
-import VotingBlock from "./VotingBlock";
 
 /*
   This is the main component for the resume page. It displays a resume with various sections that can be toggled open and closed.
   All of the randomization and pre-processing of the Firebase values is done here.
 */
-
 export default class Resume extends React.Component {
 	constructor(props) {
 		super(props);
@@ -60,12 +56,61 @@ export default class Resume extends React.Component {
 			const highlight_string = text.slice(highlight.start, highlight.end)
 			if (highlight.start < position) return;
 			position = highlight.end
-			const highlighted = <mark key={highlight.start}>{highlight_string}</mark>
+			const highlighted = <mark key={highlight.start} onClick={() => this.remove_highlight()}>{highlight_string}</mark>
 			array_of_string_text.push(before_highlight, highlighted)
 		}
 		)
 		array_of_string_text.push(text.slice(position, text.length))
 		return array_of_string_text
+	}
+
+	/**Removes the highlight that matches that was clicked*/
+	remove_highlight = () => {
+		const selection = window.getSelection();
+
+		if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return;
+		const range = selection.getRangeAt(0)
+		const start_node = range.startContainer
+		const label_start = (start_node.nodeType === 1 ? start_node : start_node.parentElement).closest("[data-field]");
+		if (!label_start) return;
+		const field = label_start.dataset.field;
+		const before = document.createRange();
+		before.selectNodeContents(label_start);
+		before.setEnd(range.startContainer, range.startOffset);
+		const offset = before.toString().length;
+		const text = label_start.textContent;
+		//find the bounds of the word
+		const isWordChar = (ch) => ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
+		let wordStart = offset;
+		while (wordStart > 0 && isWordChar(text[wordStart - 1])) {
+			wordStart--;
+		}
+		let wordEnd = offset;
+		while (wordEnd < text.length && isWordChar(text[wordEnd])) {
+			wordEnd++;
+		}
+		if (wordStart === wordEnd) return;
+		const h = this.state.highlights.find(
+			(x) => x.field === field && x.start <= offset && offset <= x.end
+		);
+		if (!h) return; const cutStart = Math.max(h.start, wordStart);
+		const cutEnd = Math.min(h.end, wordEnd);
+		if (cutStart >= cutEnd) return; // no overlap, nothing to cut
+		const leftPiece = cutStart > h.start ? { start: h.start, end: cutStart, field: h.field, text: text.slice(h.start, cutStart), timestamp: Date.now() } : null
+		const rightPiece = cutEnd < h.end ? { start: cutEnd, end: h.end, field: h.field, text: text.slice(cutEnd, h.end), timestamp: Date.now() } : null
+		const pieces = []
+		if (leftPiece !== null && leftPiece.text.trim() !== "") {
+			pieces.push(leftPiece)
+		}
+		if (rightPiece !== null && rightPiece.text.trim() !== "") {
+			pieces.push(rightPiece)
+		}
+		this.setState((prevState) => ({
+			highlights: [
+				...prevState.highlights.filter((x) => x !== h),
+				...pieces,
+			]
+		}));
 	}
 
 	handle_selection = () => {
@@ -78,13 +123,14 @@ export default class Resume extends React.Component {
 		const label_start = (start_node.nodeType === 1 ? start_node : start_node.parentElement).closest("[data-field]");
 		const label_end = (end_node.nodeType === 1 ? end_node : end_node.parentElement).closest("[data-field]");
 		if (label_end !== label_start || label_start == null || label_end == null) return
-		const field = label_start.dataset.field;
 
+		const field = label_start.dataset.field;
 		const before = document.createRange();
 		before.selectNodeContents(label_start);
 		before.setEnd(range.startContainer, range.startOffset);
 		const start = before.toString().length;
 		const end = start + range.toString().length;
+
 		const overlapping = this.state.highlights.filter(
 			(h) => h.field === field && h.start < end && start < h.end
 		);
@@ -100,7 +146,6 @@ export default class Resume extends React.Component {
 				{ start: new_start, end: new_end, field: field, text: new_text, timestamp: Date.now() },
 			],
 		}));
-
 	}
 
 	//*Renders the highlighted text inside the field by calling the handle_splice_highlights_field method.*/
@@ -411,275 +456,93 @@ export default class Resume extends React.Component {
 								{this.state.name ||
 									`Candidate ${this.state.resumeVersion === 1 ? "1" : "2"}`}
 							</div>
-
-							<div className="votingblock_notes">
-								<VotingBlock
-									sectionName="notes"
-									recordActivity={this.recordActivity}
-								/>
-
-								<div className="notes">
-									Notes from Initial Phone Screen:
-									<ul>
-										{this.state.remoteNotesText && (
-											<li>
-												{this.replaceGenderOptions(this.state.remoteNotesText)}
-											</li>
-										)}
-										{this.state.bulletList.map((item, index) => {
-											return (
-												<li data-field={`initial phone notes ${index}`} key={index}>{this.render_highlighted(this.replaceGenderOptions(item), `initial phone notes ${index}`)}</li>
-											);
-										})}
-									</ul>
-								</div>
+							<div className="notes">
+								Notes from Initial Phone Screen:
+								<ul>
+									{this.state.remoteNotesText && (
+										<li>
+											{this.replaceGenderOptions(this.state.remoteNotesText)}
+										</li>
+									)}
+									{this.state.bulletList.map((item, index) => {
+										return (
+											<li data-field={`initial phone notes ${index}`} key={index}>{this.render_highlighted(this.replaceGenderOptions(item), `initial phone notes ${index}`)}</li>
+										);
+									})}
+								</ul>
 							</div>
+							{/* Education Section */}
+							<Card>
+								<Card.Header>
+									<div className="title"> Education </div>
+								</Card.Header>
+								<Card.Body>
+									<div id="subtext">
+										<div data-field="university" >
+											{this.render_highlighted(this.state.university, "university")}
+										</div>
+										<div id="subinfo" data-field="degree and major">
+											{this.render_highlighted(
+												`${this.state.degree || ""}, ${this.state.major || ""}`,
+												"degree and major"
+											)}
+										</div>
+										<div id="subinfogray" data-field="duration" >{this.render_highlighted(this.state.duration, "duration")}</div>
+									</div>
+								</Card.Body>
+							</Card>
 
-							<Accordion>
-								{/* Education Section */}
-								<Card>
-									<Card.Header
-										style={{
-											background: "white",
-											paddingLeft: 0,
-											paddingRight: 0,
-										}}
-									>
-										<Accordion.Toggle
-											as={Button}
-											style={{
-												color: "black",
-												width: "100%",
-												display: "flex",
-												flexDirection: "row",
-												justifyContent: "space-between",
-												fontSize: "18px",
-												alignItems: "center",
-											}}
-											variant="link"
-											eventKey="0"
-											onClick={() =>
-												this.setState(
-													{
-														educationSectionOpened:
-															!this.state.educationSectionOpened,
-													},
-													() => {
-														this.collapsibleToggled(0);
-														if (this.state.educationSectionOpened) {
-															// Mark the other sections as closed
-															this.setState({
-																workSectionOpened: false,
-																miscSectionOpened: false,
-															});
-														}
-													}
-												)
-											}
-										>
-											Education{" "}
-											<img
-												id="toggle_icon"
-												src={
-													this.state.educationSectionOpened
-														? imageToURL("minus_icon")
-														: imageToURL("plus_icon")
-												}
-												alt="toggle icon"
-											/>
-										</Accordion.Toggle>
-									</Card.Header>
-
-									<Accordion.Collapse eventKey="0">
-										<Card.Body>
-											<div className="votingblock">
-												<VotingBlock
-													sectionName="education"
-													recordActivity={this.recordActivity}
-												/>
+							{/* Work Section */}
+							<Card>
+								<Card.Header>
+									<div className="title"> Work </div>
+								</Card.Header>
+								{/* Position List */}
+								<Card.Body>
+									{this.state.positionList.map((position, index) => {
+										return (
+											<div key={index}>
 												<div id="subtext">
-													<div data-field="university" >
-														{this.render_highlighted(this.state.university, "university")}
+													{" "}
+													<div data-field={`position title ${index + 1}`}>{this.render_highlighted(position.title, `position title ${index + 1}`)}</div>
+													<div id="horizontal">
+														<div id="subinfo" data-field={`company ${index + 1}`} >{this.render_highlighted(position.company, `company ${index + 1}`)}</div>
 													</div>
-													<div id="subinfo" data-field="degree and major">
-														{this.render_highlighted(
-															`${this.state.degree || ""}, ${this.state.major || ""}`,
-															"degree and major"
-														)}
-													</div>
-													<div id="subinfogray" data-field="duration" >{this.render_highlighted(this.state.duration, "duration")}</div>
+													<div id="subinfogray" data-field={`duration ${index + 1}`} >{this.render_highlighted(position.duration, `duration ${index + 1}`)}</div>
+													<div id="subinfo" data-field={`description ${index + 1}`}>{this.render_highlighted(position.description, `description ${index + 1}`)}</div>
 												</div>
+												{index < this.state.positionList.length - 1 && <Divider />}
 											</div>
-										</Card.Body>
-									</Accordion.Collapse>
-								</Card>
+										);
+									})}
+								</Card.Body>
+							</Card>
 
-								{/* Work Section */}
-								<Card>
-									<Card.Header
-										style={{
-											background: "white",
-											paddingLeft: 0,
-											paddingRight: 0,
-											borderTop: "1px solid black",
-										}}
-									>
-										<Accordion.Toggle
-											as={Button}
-											style={{
-												color: "black",
-												width: "100%",
-												display: "flex",
-												flexDirection: "row",
-												justifyContent: "space-between",
-												fontSize: "18px",
-												alignItems: "center",
-											}}
-											variant="link"
-											eventKey="1"
-											onClick={() =>
-												this.setState(
-													{
-														workSectionOpened: !this.state.workSectionOpened,
-													},
-													() => {
-														this.collapsibleToggled(1);
-														if (this.state.workSectionOpened) {
-															this.setState({
-																// Mark the other sections as closed
-																educationSectionOpened: false,
-																miscSectionOpened: false,
-															});
-														}
-													}
-												)
-											}
-										>
-											Work Experience
-											<img
-												id="toggle_icon"
-												src={
-													this.state.workSectionOpened
-														? imageToURL("minus_icon")
-														: imageToURL("plus_icon")
-												}
-												alt="toggle icon"
-											/>
-										</Accordion.Toggle>
-									</Card.Header>
-
-									{/* Position List */}
-									<Accordion.Collapse eventKey="1">
-										<Card.Body>
-											{this.state.positionList.map((position, index) => {
-												return (
-													<div key={index}>
-														<div className="votingblock">
-															<VotingBlock
-																sectionName={`work${index + 1}`}
-																recordActivity={this.recordActivity}
-															/>
-
-															<div id="subtext">
-																{" "}
-																<div data-field={`position title ${index + 1}`}>{this.render_highlighted(position.title, `position title ${index + 1}`)}</div>
-																<div id="horizontal">
-																	<div id="subinfo" data-field={`company ${index + 1}`} >{this.render_highlighted(position.company, `company ${index + 1}`)}</div>
-																</div>
-																<div id="subinfogray" data-field={`duration ${index + 1}`} >{this.render_highlighted(position.duration, `duration ${index + 1}`)}</div>
-																<div id="subinfo" data-field={`description ${index + 1}`}>{this.render_highlighted(position.description, `description ${index + 1}`)}</div>
-															</div>
-														</div>
-														<Divider />
-													</div>
-												);
-											})}
-										</Card.Body>
-									</Accordion.Collapse>
-								</Card>
-
-								{/* Misc Section */}
-								<Card>
-									<Card.Header
-										style={{
-											background: "white",
-											paddingLeft: 0,
-											paddingRight: 0,
-											borderTop: "1px solid black",
-										}}
-									>
-										<Accordion.Toggle
-											as={Button}
-											style={{
-												color: "black",
-												width: "100%",
-												display: "flex",
-												flexDirection: "row",
-												justifyContent: "space-between",
-												fontSize: "18px",
-												alignItems: "center",
-											}}
-											variant="link"
-											eventKey="2"
-											onClick={() =>
-												this.setState(
-													{
-														miscSectionOpened: !this.state.miscSectionOpened,
-													},
-													() => {
-														this.collapsibleToggled(2);
-														if (this.state.miscSectionOpened) {
-															// Mark the other sections as closed
-															this.setState({
-																educationSectionOpened: false,
-																workSectionOpened: false,
-															});
-														}
-													}
-												)
-											}
-										>
-											Miscellaneous
-											<img
-												id="toggle_icon"
-												src={
-													this.state.miscSectionOpened
-														? imageToURL("minus_icon")
-														: imageToURL("plus_icon")
-												}
-												alt="toggle icon"
-											/>
-										</Accordion.Toggle>
-									</Card.Header>
-
-									<Accordion.Collapse eventKey="2">
-										<Card.Body>
-											<div className="votingblock">
-												<VotingBlock
-													sectionName="misc"
-													recordActivity={this.recordActivity}
-												/>
-												<div className="notes">
-													Other:
-													<ul>
-														{this.state.misc.map((item, index) => {
-															return (
-																<li data-field={`misc ${index}`} key={index}>
-																	{this.render_highlighted(this.replaceGenderOptions(item), `misc ${index}`)}
-																</li>
-															);
-														})}
-													</ul>
-												</div>
-											</div>
-										</Card.Body>
-									</Accordion.Collapse>
-								</Card>
-							</Accordion>
+							{/* Misc Section */}
+							<Card>
+								<Card.Header>
+									<div className="title"> Miscellaneous </div>
+								</Card.Header>
+								<Card.Body>
+									<div className="votingblock">
+										<div className="notes">
+											<ul>
+												{this.state.misc.map((item, index) => {
+													return (
+														<li data-field={`misc ${index}`} key={index}>
+															{this.render_highlighted(this.replaceGenderOptions(item), `misc ${index}`)}
+														</li>
+													);
+												})}
+											</ul>
+										</div>
+									</div>
+								</Card.Body>
+							</Card>
 						</div>
 					</div>
 				</div>
-			</div>
+			</div >
 		);
 	}
 }
