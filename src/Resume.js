@@ -43,6 +43,20 @@ export default class Resume extends React.Component {
 		});
 	}
 
+	add_highlight = (highlights, field, start, end, fieldText) => {
+		const overlapping = highlights.filter(
+			(h) => h.field === field && h.start < end && start < h.end
+		);
+
+		const new_start = Math.min(start, ...overlapping.map((h) => h.start));
+		const new_end = Math.max(end, ...overlapping.map((h) => h.end))
+		const new_text = fieldText.slice(new_start, new_end);
+		return [...highlights.filter(
+			(h) => !(h.field === field && h.start < end && start < h.end)
+		),
+		{ start: new_start, end: new_end, field: field, text: new_text, timestamp: Date.now() },
+		];
+	}
 	/**Produces the highlighted form of the text in a given field by iterating all of the highlights 
 	and finding the ones that are in scope in this field.*/
 	handle_splice_highlights_field = (highlights, text, field_name) => {
@@ -99,12 +113,9 @@ export default class Resume extends React.Component {
 		const leftPiece = cutStart > h.start ? { start: h.start, end: cutStart, field: h.field, text: text.slice(h.start, cutStart), timestamp: Date.now() } : null
 		const rightPiece = cutEnd < h.end ? { start: cutEnd, end: h.end, field: h.field, text: text.slice(cutEnd, h.end), timestamp: Date.now() } : null
 		const pieces = []
-		if (leftPiece !== null && leftPiece.text.trim() !== "") {
-			pieces.push(leftPiece)
-		}
-		if (rightPiece !== null && rightPiece.text.trim() !== "") {
-			pieces.push(rightPiece)
-		}
+		const hasWord = (s) => /[\p{L}\p{N}]/u.test(s);
+		if (leftPiece !== null && hasWord(leftPiece.text)) pieces.push(leftPiece);
+		if (rightPiece !== null && hasWord(rightPiece.text)) pieces.push(rightPiece);
 		this.setState((prevState) => ({
 			highlights: [
 				...prevState.highlights.filter((x) => x !== h),
@@ -118,34 +129,38 @@ export default class Resume extends React.Component {
 		if (!selection || selection.isCollapsed) return;
 
 		const range = selection.getRangeAt(0)
-		const start_node = range.startContainer
-		const end_node = range.endContainer
-		const label_start = (start_node.nodeType === 1 ? start_node : start_node.parentElement).closest("[data-field]");
-		const label_end = (end_node.nodeType === 1 ? end_node : end_node.parentElement).closest("[data-field]");
-		if (label_end !== label_start || label_start == null || label_end == null) return
+		const fields = Array.from(document.querySelectorAll("[data-field]"))
+			.filter((el) => range.intersectsNode(el));
+		if (fields.length === 0) return;
+		console.log(fields.map((el) => el.dataset.field));
+		const pieces = [];
+		fields.forEach((el) => {
+			const fieldRange = document.createRange();
+			fieldRange.selectNodeContents(el);
 
-		const field = label_start.dataset.field;
-		const before = document.createRange();
-		before.selectNodeContents(label_start);
-		before.setEnd(range.startContainer, range.startOffset);
-		const start = before.toString().length;
-		const end = start + range.toString().length;
+			const part = range.cloneRange();
+			if (range.compareBoundaryPoints(Range.START_TO_START, fieldRange) < 0) {
+				part.setStart(fieldRange.startContainer, fieldRange.startOffset);
+			}
+			if (range.compareBoundaryPoints(Range.END_TO_END, fieldRange) > 0) {
+				part.setEnd(fieldRange.endContainer, fieldRange.endOffset);
+			}
+			const before = document.createRange();
+			before.selectNodeContents(el);
+			before.setEnd(part.startContainer, part.startOffset);
+			const start = before.toString().length;
+			const end = start + part.toString().length;
+			if (end <= start) return; // selection only touched the edge of this field
+			pieces.push({ field: el.dataset.field, start: start, end: end, text: el.textContent });
 
-		const overlapping = this.state.highlights.filter(
-			(h) => h.field === field && h.start < end && start < h.end
-		);
-
-		const new_start = Math.min(start, ...overlapping.map((h) => h.start));
-		const new_end = Math.max(end, ...overlapping.map((h) => h.end))
-		const new_text = label_start.textContent.slice(new_start, new_end);
+		});
 		this.setState((prevState) => ({
-			highlights: [
-				...prevState.highlights.filter(
-					(h) => !(h.field === field && h.start < end && start < h.end)
-				),
-				{ start: new_start, end: new_end, field: field, text: new_text, timestamp: Date.now() },
-			],
+			highlights: pieces.reduce(
+				(acc, p) => this.add_highlight(acc, p.field, p.start, p.end, p.text),
+				prevState.highlights
+			),
 		}));
+		selection.removeAllRanges();
 	}
 
 	//*Renders the highlighted text inside the field by calling the handle_splice_highlights_field method.*/
