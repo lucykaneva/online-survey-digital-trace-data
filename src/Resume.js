@@ -13,7 +13,8 @@ export default class Resume extends React.Component {
 		super(props);
 		this.state = {
 			positionList: [],
-			highlights: []
+			highlights: [],
+			comments: {}
 		};
 
 		// Add props to "this"
@@ -43,18 +44,30 @@ export default class Resume extends React.Component {
 		});
 	}
 
-	add_highlight = (highlights, field, start, end, fieldText) => {
+	/**Makes an id, used for the highlight's id and the group id (the pieces).*/
+	make_id = () => Date.now() + "-" + Math.random().toString(36).slice(2);
+
+	/**Creates a highlight, merging overlapping once.*/
+	add_highlight = (highlights, field, start, end, fieldText, groupId) => {
 		const overlapping = highlights.filter(
 			(h) => h.field === field && h.start < end && start < h.end
 		);
-
 		const new_start = Math.min(start, ...overlapping.map((h) => h.start));
 		const new_end = Math.max(end, ...overlapping.map((h) => h.end))
 		const new_text = fieldText.slice(new_start, new_end);
+		const final_group = overlapping.length > 0 ? overlapping[0].groupId : groupId;
 		return [...highlights.filter(
 			(h) => !(h.field === field && h.start < end && start < h.end)
 		),
-		{ start: new_start, end: new_end, field: field, text: new_text, timestamp: Date.now() },
+		{
+			id: this.make_id(),
+			start: new_start,
+			end: new_end,
+			field: field,
+			text: new_text,
+			timestamp: Date.now(),
+			groupId: final_group
+		},
 		];
 	}
 	/**Produces the highlighted form of the text in a given field by iterating all of the highlights 
@@ -110,8 +123,8 @@ export default class Resume extends React.Component {
 		if (!h) return; const cutStart = Math.max(h.start, wordStart);
 		const cutEnd = Math.min(h.end, wordEnd);
 		if (cutStart >= cutEnd) return; // no overlap, nothing to cut
-		const leftPiece = cutStart > h.start ? { start: h.start, end: cutStart, field: h.field, text: text.slice(h.start, cutStart), timestamp: Date.now() } : null
-		const rightPiece = cutEnd < h.end ? { start: cutEnd, end: h.end, field: h.field, text: text.slice(cutEnd, h.end), timestamp: Date.now() } : null
+		const leftPiece = cutStart > h.start ? { id: this.make_id(), start: h.start, end: cutStart, field: h.field, text: text.slice(h.start, cutStart), timestamp: Date.now(), groupId: h.groupId } : null
+		const rightPiece = cutEnd < h.end ? { id: this.make_id(), start: cutEnd, end: h.end, field: h.field, text: text.slice(cutEnd, h.end), timestamp: Date.now(), groupId: h.groupId } : null
 		const pieces = []
 		const hasWord = (s) => /[\p{L}\p{N}]/u.test(s);
 		if (leftPiece !== null && hasWord(leftPiece.text)) pieces.push(leftPiece);
@@ -132,8 +145,9 @@ export default class Resume extends React.Component {
 		const fields = Array.from(document.querySelectorAll("[data-field]"))
 			.filter((el) => range.intersectsNode(el));
 		if (fields.length === 0) return;
-		console.log(fields.map((el) => el.dataset.field));
 		const pieces = [];
+		//this selection has one groupId (all of the pieces withing belong together)
+		const groupId = this.make_id();
 		fields.forEach((el) => {
 			const fieldRange = document.createRange();
 			fieldRange.selectNodeContents(el);
@@ -151,12 +165,12 @@ export default class Resume extends React.Component {
 			const start = before.toString().length;
 			const end = start + part.toString().length;
 			if (end <= start) return; // selection only touched the edge of this field
-			pieces.push({ field: el.dataset.field, start: start, end: end, text: el.textContent });
+			pieces.push({ field: el.dataset.field, start: start, end: end, text: el.textContent, groupId: groupId });
 
 		});
 		this.setState((prevState) => ({
 			highlights: pieces.reduce(
-				(acc, p) => this.add_highlight(acc, p.field, p.start, p.end, p.text),
+				(acc, p) => this.add_highlight(acc, p.field, p.start, p.end, p.text, p.groupId),
 				prevState.highlights
 			),
 		}));
@@ -445,6 +459,15 @@ export default class Resume extends React.Component {
 		// this.recordActivity("mouse", `(${e.clientX},${e.clientY})`, "moved mouse");
 	}
 
+	handleWriteComments(e, groupId) {
+		const value = e.target.value
+		this.setState((prev) => ({
+			comments: {
+				...prev.comments,
+				[groupId]: value
+			},
+		}));
+	}
 	render() {
 		// If our data hasn't loaded yet, show a loading screen
 		if (
@@ -456,7 +479,13 @@ export default class Resume extends React.Component {
 		) {
 			return <h1>Loading...</h1>;
 		}
-
+		const groups = {}
+		this.state.highlights.forEach(h => {
+			if (!groups[h.groupId]) {
+				groups[h.groupId] = []
+			}
+			groups[h.groupId].push(h.text)
+		})
 		return (
 			<div className="overall" onMouseUp={this.handle_selection} >
 				<div className="App" onMouseMove={this._onMouseMove.bind(this)}>
@@ -555,6 +584,20 @@ export default class Resume extends React.Component {
 								</Card.Body>
 							</Card>
 						</div>
+					</div>
+					<div className="comments">
+
+						{Object.entries(groups).map(([groupId, textArray]) =>
+						(
+							<div className={groupId}>
+								<div>{textArray.join(" ... ")}</div>
+								<textarea
+									value={this.state.comments[groupId] || ""}
+									onChange={(e) => this.handleWriteComments(e, groupId)}
+								/>
+							</div>
+						)
+						)}
 					</div>
 				</div>
 			</div >
